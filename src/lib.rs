@@ -98,6 +98,21 @@ impl DoublePendulum {
         ctx.line_to(200.0 + self.offset_x + x1 * 100.0, 200.0 + self.offset_y + y1 * 100.0);
         ctx.line_to(200.0 + self.offset_x + x2 * 100.0, 200.0 + self.offset_y + y2 * 100.0);
         ctx.stroke();
+
+        // Draw additional elements to increase load
+        ctx.begin_path();
+        ctx.arc(200.0 + self.offset_x + x1 * 100.0, 200.0 + self.offset_y + y1 * 100.0, 5.0, 0.0, 2.0 * std::f64::consts::PI).unwrap();
+        ctx.fill();
+        ctx.begin_path();
+        ctx.arc(200.0 + self.offset_x + x2 * 100.0, 200.0 + self.offset_y + y2 * 100.0, 5.0, 0.0, 2.0 * std::f64::consts::PI).unwrap();
+        ctx.fill();
+
+        // Additional drawing to increase complexity
+        for i in 0..10 {
+            ctx.begin_path();
+            ctx.arc(200.0 + self.offset_x + x1 * 100.0 + i as f64 * 10.0, 200.0 + self.offset_y + y1 * 100.0 + i as f64 * 10.0, 3.0, 0.0, 2.0 * std::f64::consts::PI).unwrap();
+            ctx.fill();
+        }
     }
 }
 
@@ -114,54 +129,70 @@ pub fn run_simulation() {
 
     let pendulums = Rc::new(RefCell::new(vec![DoublePendulum::new(0.0, 0.0); 10]));
     let pendulums_clone = Rc::clone(&pendulums);
-    let mut last_time = Date::now();
-    let mut frame_count = 0;
-    let mut total_time = 0.0;
+    let last_time = Rc::new(RefCell::new(Date::now()));
+    let frame_count = Rc::new(RefCell::new(0));
+    let total_time = Rc::new(RefCell::new(0.0));
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 
-    *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        let now = Date::now();
-        let delta_time = now - last_time;
-        last_time = now;
-        total_time += delta_time;
-        frame_count += 1;
+    *g.borrow_mut() = Some(Closure::wrap(Box::new({
+        let last_time = Rc::clone(&last_time);
+        let frame_count = Rc::clone(&frame_count);
+        let total_time = Rc::clone(&total_time);
+        let pendulums = Rc::clone(&pendulums);
+        let document_clone = document_clone.clone();
+        move || {
+            let now = Date::now();
+            let delta_time = now - *last_time.borrow();
+            *last_time.borrow_mut() = now;
+            *total_time.borrow_mut() += delta_time;
+            *frame_count.borrow_mut() += 1;
 
-        ctx.clear_rect(0.0, 0.0, canvas.width().into(), canvas.height().into());
-        for pendulum in &mut *pendulums.borrow_mut() {
-            pendulum.update();
-            pendulum.draw(&ctx);
+            ctx.clear_rect(0.0, 0.0, canvas.width().into(), canvas.height().into());
+            for pendulum in &mut *pendulums.borrow_mut() {
+                pendulum.update();
+                pendulum.draw(&ctx);
+            }
+
+            if *frame_count.borrow() % 60 == 0 {
+                let fps = (*frame_count.borrow() as f64 / *total_time.borrow()) * 1000.0;
+                let avg_time = *total_time.borrow() / *frame_count.borrow() as f64;
+                document_clone.get_element_by_id("fps-wasm").unwrap().set_text_content(Some(&format!("{:.2}", fps)));
+                document_clone.get_element_by_id("avg-time-wasm").unwrap().set_text_content(Some(&format!("{:.2}", avg_time)));
+            }
+
+            request_animation_frame(f.borrow().as_ref().unwrap());
         }
-
-        if frame_count % 60 == 0 {
-            let fps = (frame_count as f64 / total_time) * 1000.0;
-            let avg_time = total_time / frame_count as f64;
-            document_clone.get_element_by_id("fps-wasm").unwrap().set_text_content(Some(&format!("{:.2}", fps)));
-            document_clone.get_element_by_id("avg-time-wasm").unwrap().set_text_content(Some(&format!("{:.2}", avg_time)));
-        }
-
-        request_animation_frame(f.borrow().as_ref().unwrap());
     }) as Box<dyn FnMut()>));
 
     request_animation_frame(g.borrow().as_ref().unwrap());
 
-    let closure = Closure::wrap(Box::new(move |event: Event| {
-        let input = event.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
-        let count = input.value_as_number() as usize;
-        document_clone_for_closure.get_element_by_id("pendulum-count-display-wasm").unwrap().set_text_content(Some(&count.to_string()));
-        let mut new_pendulums = vec![];
-        for i in 0..count {
-            let offset_x = (i % 10) as f64 * 5.0;
-            let offset_y = (i / 10) as f64 * 5.0;
-            new_pendulums.push(DoublePendulum::new(offset_x, offset_y));
+    let closure = Closure::wrap(Box::new({
+        let last_time = Rc::clone(&last_time);
+        let frame_count = Rc::clone(&frame_count);
+        let total_time = Rc::clone(&total_time);
+        move |event: Event| {
+            let input = event.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
+            let count = input.value_as_number() as usize;
+            document_clone_for_closure.get_element_by_id("pendulum-count-display-wasm").unwrap().set_text_content(Some(&count.to_string()));
+            let mut new_pendulums = vec![];
+            for i in 0..count {
+                let offset_x = (i % 10) as f64 * 5.0;
+                let offset_y = (i / 10) as f64 * 5.0;
+                new_pendulums.push(DoublePendulum::new(offset_x, offset_y));
+            }
+            *pendulums_clone.borrow_mut() = new_pendulums;
+
+            // Reset performance counters when the number of pendulums changes
+            *last_time.borrow_mut() = Date::now();
+            *frame_count.borrow_mut() = 0;
+            *total_time.borrow_mut() = 0.0;
         }
-        *pendulums_clone.borrow_mut() = new_pendulums;
     }) as Box<dyn FnMut(_)>);
 
     document.get_element_by_id("pendulum-count-wasm").unwrap().add_event_listener_with_callback("input", closure.as_ref().unchecked_ref()).unwrap();
     closure.forget();
-
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut()>) {

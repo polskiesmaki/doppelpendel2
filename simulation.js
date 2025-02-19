@@ -1,6 +1,5 @@
 class DoublePendulum {
-    constructor(offsetX, offsetY) {
-        // Initial configuration
+    constructor(offset_x, offset_y) {
         this.theta1 = Math.PI / 2;
         this.theta2 = Math.PI / 2;
         this.p1 = 0;
@@ -10,19 +9,19 @@ class DoublePendulum {
         this.l1 = 1;
         this.l2 = 1;
         this.g = 9.81;
-        this.offsetX = offsetX;
-        this.offsetY = offsetY;
+        this.offset_x = offset_x;
+        this.offset_y = offset_y;
     }
 
     rk4_step() {
         const dt = 0.01;
 
         const dtheta1 = (p1, p2, theta1, theta2) => {
-            return (6 / (this.m1 * this.l1 * this.l1)) * (2 * p1 - 3 * Math.cos(theta1 - theta2) * p2) / (16 - 9 * Math.cos(theta1 - theta2) * Math.cos(theta1 - theta2));
+            return (6 / (this.m1 * this.l1 * this.l1)) * (2 * p1 - 3 * Math.cos(theta1 - theta2) * p2) / (16 - 9 * Math.cos(theta1 - theta2) ** 2);
         };
 
         const dtheta2 = (p1, p2, theta1, theta2) => {
-            return (6 / (this.m2 * this.l2 * this.l2)) * (8 * p2 - 3 * Math.cos(theta1 - theta2) * p1) / (16 - 9 * Math.cos(theta1 - theta2) * Math.cos(theta1 - theta2));
+            return (6 / (this.m2 * this.l2 * this.l2)) * (8 * p2 - 3 * Math.cos(theta1 - theta2) * p1) / (16 - 9 * Math.cos(theta1 - theta2) ** 2);
         };
 
         const dp1 = (p1, p2, theta1, theta2) => {
@@ -64,66 +63,78 @@ class DoublePendulum {
     }
 
     draw(ctx) {
-        // Draw the double pendulum on the canvas
         const x1 = this.l1 * Math.sin(this.theta1);
         const y1 = this.l1 * Math.cos(this.theta1);
         const x2 = x1 + this.l2 * Math.sin(this.theta2);
         const y2 = y1 + this.l2 * Math.cos(this.theta2);
 
         ctx.beginPath();
-        ctx.moveTo(200 + this.offsetX, 200 + this.offsetY);
-        ctx.lineTo(200 + x1 * 100 + this.offsetX, 200 + y1 * 100 + this.offsetY);
-        ctx.lineTo(200 + x2 * 100 + this.offsetX, 200 + y2 * 100 + this.offsetY);
+        ctx.moveTo(200 + this.offset_x, 200 + this.offset_y);
+        ctx.lineTo(200 + this.offset_x + x1 * 100, 200 + this.offset_y + y1 * 100);
+        ctx.lineTo(200 + this.offset_x + x2 * 100, 200 + this.offset_y + y2 * 100);
         ctx.stroke();
+
+        // Draw additional elements to increase load
+        ctx.beginPath();
+        ctx.arc(200 + this.offset_x + x1 * 100, 200 + this.offset_y + y1 * 100, 5, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(200 + this.offset_x + x2 * 100, 200 + this.offset_y + y2 * 100, 5, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Additional drawing to increase complexity
+        for (let i = 0; i < 10; i++) {
+            ctx.beginPath();
+            ctx.arc(200 + this.offset_x + x1 * 100 + i * 10, 200 + this.offset_y + y1 * 100 + i * 10, 3, 0, 2 * Math.PI);
+            ctx.fill();
+        }
     }
 }
 
-const canvasJs = document.getElementById('canvas-js');
-const ctxJs = canvasJs.getContext('2d');
-let pendulumsJs = [];
-let pendulumCountJs = 10;
-let lastTimeJs = performance.now();
-let frameCountJs = 0;
-let totalTimeJs = 0;
+function runSimulation() {
+    const canvas = document.getElementById('canvas-js');
+    const ctx = canvas.getContext('2d');
 
-function initializePendulumsJs(count) {
-    pendulumsJs = [];
-    for (let i = 0; i < count; i++) {
-        const offsetX = (i % 10) * 5;
-        const offsetY = Math.floor(i / 10) * 5;
-        pendulumsJs.push(new DoublePendulum(offsetX, offsetY));
+    let pendulums = Array.from({ length: 10 }, () => new DoublePendulum(0, 0));
+    let lastTime = Date.now();
+    let frameCount = 0;
+    let totalTime = 0;
+
+    function updateAndDraw() {
+        const now = Date.now();
+        const deltaTime = now - lastTime;
+        lastTime = now;
+        totalTime += deltaTime;
+        frameCount++;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (const pendulum of pendulums) {
+            pendulum.update();
+            pendulum.draw(ctx);
+        }
+
+        if (frameCount % 60 === 0) {
+            const fps = (frameCount / totalTime) * 1000;
+            const avgTime = totalTime / frameCount;
+            document.getElementById('fps-js').textContent = fps.toFixed(2);
+            document.getElementById('avg-time-js').textContent = avgTime.toFixed(2);
+        }
+
+        requestAnimationFrame(updateAndDraw);
     }
+
+    updateAndDraw();
+
+    document.getElementById('pendulum-count-js').addEventListener('input', (event) => {
+        const count = event.target.valueAsNumber;
+        document.getElementById('pendulum-count-display-js').textContent = count.toString();
+        pendulums = Array.from({ length: count }, (_, i) => new DoublePendulum((i % 10) * 5, Math.floor(i / 10) * 5));
+
+        // Reset performance counters when the number of pendulums changes
+        lastTime = Date.now();
+        frameCount = 0;
+        totalTime = 0;
+    });
 }
 
-initializePendulumsJs(pendulumCountJs);
-
-function updateJs() {
-    const now = performance.now();
-    const deltaTime = now - lastTimeJs;
-    lastTimeJs = now;
-    totalTimeJs += deltaTime;
-    frameCountJs++;
-
-    ctxJs.clearRect(0, 0, canvasJs.width, canvasJs.height);
-    for (const pendulum of pendulumsJs) {
-        pendulum.update();
-        pendulum.draw(ctxJs);
-    }
-
-    if (frameCountJs % 60 === 0) {
-        const fps = (frameCountJs / totalTimeJs) * 1000;
-        const avgTime = totalTimeJs / frameCountJs;
-        document.getElementById('fps-js').textContent = fps.toFixed(2);
-        document.getElementById('avg-time-js').textContent = avgTime.toFixed(2);
-    }
-
-    requestAnimationFrame(updateJs);
-}
-
-updateJs();
-
-document.getElementById('pendulum-count-js').addEventListener('input', (event) => {
-    pendulumCountJs = event.target.value;
-    document.getElementById('pendulum-count-display-js').textContent = pendulumCountJs;
-    initializePendulumsJs(pendulumCountJs);
-});
+document.addEventListener('DOMContentLoaded', runSimulation);
