@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Double Pendulum Simulation</title>
+    <style>
+        #container {
+            display: flex;
+            justify-content: space-around;
+        }
+        .simulation {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div class="simulation">
+            <h2>JavaScript Simulation</h2>
+            <canvas id="canvas-js" width="400" height="400"></canvas>
+            <div>
+                <label for="pendulum-count-js">Pendulum Count: </label>
+                <input type="range" id="pendulum-count-js" min="10" max="10000" step="10" value="10">
+                <span id="pendulum-count-display-js">10</span>
+            </div>
+            <div>
+                <span>FPS: <span id="fps-js">0</span></span>
+                <span>Avg Time: <span id="avg-time-js">0</span> ms</span>
+            </div>
+        </div>
+        <div class="simulation">
+            <h2>Rust WASM Simulation</h2>
+            <canvas id="canvas-wasm" width="400" height="400"></canvas>
+            <div>
+                <label for="pendulum-count-wasm">Pendulum Count: </label>
+                <input type="range" id="pendulum-count-wasm" min="10" max="10000" step="10" value="10">
+                <span id="pendulum-count-display-wasm">10</span>
+            </div>
+            <div>
+                <span>FPS: <span id="fps-wasm">0</span></span>
+                <span>Avg Time: <span id="avg-time-wasm">0</span> ms</span>
+            </div>
+        </div>
+    </div>
+    <script src="simulation.js"></script>
+    <script type="module">
+        import init, { run_simulation } from './pkg/doppelpendel_2_0.js';
+        async function runWasm() {
+            await init();
+            run_simulation();
+        }
+        runWasm();
+    </script>
+</body>
+</html>
