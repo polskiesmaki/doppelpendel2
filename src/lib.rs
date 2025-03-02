@@ -119,16 +119,13 @@ impl DoublePendulum {
 #[wasm_bindgen]
 pub fn run_simulation() {
     let window = web_sys::window().expect("no global `window` exists");
-    
     let document = window.document().expect("should have a document on window");
     let document_clone = document.clone();
-    let document_clone_for_closure = document.clone();
     let canvas = document.get_element_by_id("canvas-wasm").unwrap();
     let canvas: HtmlCanvasElement = canvas.dyn_into::<HtmlCanvasElement>().unwrap();
     let ctx = canvas.get_context("2d").unwrap().unwrap().dyn_into::<CanvasRenderingContext2d>().unwrap();
 
-    let pendulums = Rc::new(RefCell::new(vec![DoublePendulum::new(0.0, 0.0); 10]));
-    let pendulums_clone = Rc::clone(&pendulums);
+    let pendulums = Rc::new(RefCell::new(vec![DoublePendulum::new(0.0, 0.0); 1])); // Start with 1 pendulum
     let last_time = Rc::new(RefCell::new(Date::now()));
     let frame_count = Rc::new(RefCell::new(0));
     let total_time = Rc::new(RefCell::new(0.0));
@@ -172,17 +169,18 @@ pub fn run_simulation() {
         let last_time = Rc::clone(&last_time);
         let frame_count = Rc::clone(&frame_count);
         let total_time = Rc::clone(&total_time);
+        let document_clone = document.clone();
         move |event: Event| {
             let input = event.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
             let count = input.value_as_number() as usize;
-            document_clone_for_closure.get_element_by_id("pendulum-count-display-wasm").unwrap().set_text_content(Some(&count.to_string()));
+            document_clone.get_element_by_id("pendulum-count-display-wasm").unwrap().set_text_content(Some(&count.to_string()));
             let mut new_pendulums = vec![];
             for i in 0..count {
                 let offset_x = (i % 10) as f64 * 5.0;
                 let offset_y = (i / 10) as f64 * 5.0;
                 new_pendulums.push(DoublePendulum::new(offset_x, offset_y));
             }
-            *pendulums_clone.borrow_mut() = new_pendulums;
+            *pendulums.borrow_mut() = new_pendulums;
 
             // Reset performance counters when the number of pendulums changes
             *last_time.borrow_mut() = Date::now();

@@ -95,7 +95,7 @@ function runSimulation() {
     const canvas = document.getElementById('canvas-js');
     const ctx = canvas.getContext('2d');
 
-    let pendulums = Array.from({ length: 10 }, () => new DoublePendulum(0, 0));
+    let pendulums = Array.from({ length: 1 }, () => new DoublePendulum(0, 0));
     let lastTime = Date.now();
     let frameCount = 0;
     let totalTime = 0;
